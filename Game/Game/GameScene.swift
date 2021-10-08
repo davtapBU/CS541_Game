@@ -8,102 +8,178 @@
 import SpriteKit
 import GameplayKit
 
-class GameScene: SKScene {
+class GameScene: SKScene, SKPhysicsContactDelegate {
     
-    var entities = [GKEntity]()
-    var graphs = [String : GKGraph]()
+    //Constants for nodes
+    let ballRadius: CGFloat = 15
+    let paddleSize = CGSize(width: 100, height: 10)
+    let paddleEdgeOffset: CGFloat = 60
+    let wallWidth: CGFloat = 10
     
-    private var lastUpdateTime : TimeInterval = 0
-    private var label : SKLabelNode?
-    private var spinnyNode : SKShapeNode?
     
-    override func sceneDidLoad() {
+    var ball: SKShapeNode!
+    var topPaddle: SKShapeNode!
+    var bottomPaddle: SKShapeNode!
 
-        self.lastUpdateTime = 0
-        
-        // Get label node from scene and store it for use later
-        self.label = self.childNode(withName: "//helloLabel") as? SKLabelNode
-        if let label = self.label {
-            label.alpha = 0.0
-            label.run(SKAction.fadeIn(withDuration: 2.0))
-        }
-        
-        // Create shape node to use during mouse interaction
-        let w = (self.size.width + self.size.height) * 0.05
-        self.spinnyNode = SKShapeNode.init(rectOf: CGSize.init(width: w, height: w), cornerRadius: w * 0.3)
-        
-        if let spinnyNode = self.spinnyNode {
-            spinnyNode.lineWidth = 2.5
-            
-            spinnyNode.run(SKAction.repeatForever(SKAction.rotate(byAngle: CGFloat(Double.pi), duration: 1)))
-            spinnyNode.run(SKAction.sequence([SKAction.wait(forDuration: 0.5),
-                                              SKAction.fadeOut(withDuration: 0.5),
-                                              SKAction.removeFromParent()]))
-        }
+    override func didMove(to view: SKView) {
+      startGame()
     }
     
+    func startGame() {
+      // We will call this after the game is over to start again, so
+      // start by removing all of the nodes so we have a blank scene
+      self.removeAllChildren()
+      setUpPhysicsWorld()
+      createBall()
+      createWalls()
+      createPassedBallDetectors()
+      createPaddles()
+      createScore()
+
+      resetBall()
+    }
+    
+    func setUpPhysicsWorld() {
+        self.physicsWorld.gravity = CGVector(dx: 0, dy: 0)
+        self.physicsWorld.contactDelegate = self
+    }
+
+    func createBall() {
+        let ball = SKShapeNode(circleOfRadius: ballRadius)
+        ball.position = CGPoint(x: size.width/2, y: size.height/2)
+        ball.physicsBody =
+          SKPhysicsBody(circleOfRadius: ballRadius)
+          .ideal()
+
+        ball.strokeColor = .white
+        ball.fillColor = .systemOrange
+
+        addChild(ball)
+        self.ball = ball
+    }
+
+    func resetBall() {
+        ball?.physicsBody?.velocity = CGVector(dx: 200, dy: 200)
+    }
+
+    func createWalls() {
+        createVerticalWall(x: wallWidth/2)
+        createVerticalWall(x: size.width - wallWidth/2)
+    }
+
+    func createPassedBallDetectors() {
+    }
+
+    func createPaddles() {
+        self.topPaddle = createPaddle(y: size.height - paddleEdgeOffset, color: .systemRed)
+        self.bottomPaddle = createPaddle(y: paddleEdgeOffset, color: .systemBlue)
+    }
+
+    func createScore() {
+    }
     
     func touchDown(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.green
-            self.addChild(n)
-        }
     }
     
     func touchMoved(toPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.blue
-            self.addChild(n)
-        }
     }
     
     func touchUp(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.red
-            self.addChild(n)
-        }
     }
     
+    // This function is called if a finger is placed on the screen
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let label = self.label {
-            label.run(SKAction.init(named: "Pulse")!, withKey: "fadeInOut")
-        }
-        
         for t in touches { self.touchDown(atPoint: t.location(in: self)) }
     }
     
+    // This function is called if a finger is moved on the screen
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches { self.touchMoved(toPoint: t.location(in: self)) }
     }
     
+    // This function is called if a finger is removed from the screen
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches { self.touchUp(atPoint: t.location(in: self)) }
     }
     
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchUp(atPoint: t.location(in: self)) }
+    // This function is called if any two objects touch each other
+    @nonobjc func didBegin(_ contact: SKPhysicsContact) {
     }
-    
     
     override func update(_ currentTime: TimeInterval) {
         // Called before each frame is rendered
-        
-        // Initialize _lastUpdateTime if it has not already been
-        if (self.lastUpdateTime == 0) {
-            self.lastUpdateTime = currentTime
-        }
-        
-        // Calculate time since last update
-        let dt = currentTime - self.lastUpdateTime
-        
-        // Update entities
-        for entity in self.entities {
-            entity.update(deltaTime: dt)
-        }
-        
-        self.lastUpdateTime = currentTime
     }
+    
+    func createVerticalWall(x: CGFloat) {
+        let wallSize = CGSize(width: wallWidth, height: size.height)
+        let wall = SKShapeNode(rectOf: wallSize)
+        wall.physicsBody =
+        SKPhysicsBody(rectangleOf: wallSize)
+            .ideal()
+            .manualMovement()
+
+        wall.position = CGPoint(x: x, y: size.height/2)
+        wall.strokeColor = .systemOrange
+        wall.fillColor = .systemOrange
+        addChild(wall)
+      }
+    
+    func createPaddle(y: CGFloat, color: UIColor) -> SKShapeNode {
+      let paddle = SKShapeNode(rectOf: paddleSize)
+      paddle.physicsBody =
+        SKPhysicsBody(rectangleOf: paddleSize)
+        .ideal()
+        .manualMovement()
+
+      paddle.position = CGPoint(x: size.width/2, y: y)
+      paddle.strokeColor = color
+      paddle.fillColor = color
+      addChild(paddle)
+      return paddle
+    }
+}
+
+//Extension to the SpriteKit Physics body class to make ideal objects that have no friction
+// or drag, and don't interact with the environment but can collide with other objects.
+extension SKPhysicsBody {
+    func ideal() -> SKPhysicsBody {
+        self.friction = 0
+        self.linearDamping = 0
+        self.angularDamping = 0
+        self.restitution = 1
+        return self
+    }
+
+  func manualMovement() -> SKPhysicsBody {
+      self.isDynamic = false
+      self.allowsRotation = false
+      self.affectedByGravity = false
+      return self
+  }
+}
+
+// Functions that help us make and use vectors
+extension CGVector {
+    
+  init(angleRadians: CGFloat, length: CGFloat) {
+    let dx = cos(angleRadians) * length
+    let dy = sin(angleRadians) * length
+    self.init(dx: dx, dy: dy)
+  }
+
+  init(angleDegrees: CGFloat, length: CGFloat) {
+    self.init(angleRadians: angleDegrees / 180.0 * .pi, length: length)
+  }
+
+  func angleRadians() -> CGFloat {
+    return atan2(dy, dx)
+  }
+
+  func angleDegrees() -> CGFloat {
+    return angleRadians() * 180.0 / .pi
+  }
+
+  func length() -> CGFloat {
+    return sqrt(pow(dx, 2) + pow(dy, 2))
+  }
 }
