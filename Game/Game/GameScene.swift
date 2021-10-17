@@ -13,27 +13,52 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     var lastUpdateTime: TimeInterval = 0
     
     //Constants for nodes
-    let ballRadius: CGFloat = 15
+    let ballRadius: CGFloat = 13.5
     let paddleSize = CGSize(width: 100, height: 10)
     let paddleEdgeOffset: CGFloat = 60
-    let wallWidth: CGFloat = 10
+    let wallWidth: CGFloat = 5
     
     
     var ball: SKShapeNode!
     var topPaddle: SKShapeNode!
     var bottomPaddle: SKShapeNode!
+    var bottomBallDetector: SKShapeNode!
+    var topBallDetector: SKShapeNode!
     
     var topPaddleDirection = PaddleDirection.still
     var bottomPaddleDirection = PaddleDirection.still
     
     override func didMove(to view: SKView) {
         startGame()
+        self.backgroundColor = .white
+    }
+    
+    // This function is called if any two objects touch each other
+    func didBegin(_ contact: SKPhysicsContact) {
+        // Check to see if the ball went off the screen
+        if didContact(contact, between: self.ball, and: self.bottomBallDetector) ||
+            didContact(contact, between: self.ball, and: self.topBallDetector) {
+            // The ball went off the screen, so remove it and make a new one
+            self.ball?.removeFromParent()
+            createBall()
+            resetBall()
+        }
+    }
+    
+    // Check a contact object for two specific nodes
+    func didContact(_ contact: SKPhysicsContact, between nodeA: SKNode?, and nodeB: SKNode?) -> Bool {
+        return
+        (contact.bodyA == nodeA?.physicsBody &&
+         contact.bodyB == nodeB?.physicsBody) ||
+        (contact.bodyA == nodeB?.physicsBody &&
+         contact.bodyB == nodeA?.physicsBody)
     }
     
     func startGame() {
         // We will call this after the game is over to start again, so
         // start by removing all of the nodes so we have a blank scene
         self.removeAllChildren()
+        createRink()
         setUpPhysicsWorld()
         createBall()
         createWalls()
@@ -49,6 +74,46 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         self.physicsWorld.contactDelegate = self
     }
     
+    func createRink() {
+        let smallCircle = SKShapeNode(circleOfRadius: 5.0)
+        smallCircle.position = CGPoint(x: size.width/2, y: size.height/2)
+        smallCircle.strokeColor = .blue
+        smallCircle.fillColor = .blue
+        addChild(smallCircle)
+        
+        let linesize = CGSize(width: size.width, height: 4.0)
+        let line1 = SKShapeNode(rectOf: linesize)
+        line1.position = CGPoint(x: size.width/2, y: size.height/2)
+        line1.strokeColor = .blue
+        line1.fillColor = .blue
+        addChild(line1)
+        
+        let line2 = SKShapeNode(rectOf: linesize)
+        line2.position = CGPoint(x: size.width/2, y: size.height/4)
+        line2.strokeColor = .blue
+        line2.fillColor = .blue
+        addChild(line2)
+        
+        let line3 = SKShapeNode(rectOf: linesize)
+        line3.position = CGPoint(x: size.width/2, y: size.height/4 * 3)
+        line3.strokeColor = .blue
+        line3.fillColor = .blue
+        addChild(line3)
+        
+        let topCircle = SKShapeNode(circleOfRadius: 100.0)
+        topCircle.position = CGPoint(x: size.width/2, y: size.height)
+        topCircle.strokeColor = .blue
+        topCircle.lineWidth = 5.0
+        addChild(topCircle)
+        
+        let bottomCircle = SKShapeNode(circleOfRadius: 100.0)
+        bottomCircle.position = CGPoint(x: size.width/2, y: 0)
+        bottomCircle.strokeColor = .blue
+        bottomCircle.lineWidth = 5.0
+        addChild(bottomCircle)
+        
+    }
+    
     func createBall() {
         let ball = SKShapeNode(circleOfRadius: ballRadius)
         ball.position = CGPoint(x: size.width/2, y: size.height/2)
@@ -56,7 +121,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         SKPhysicsBody(circleOfRadius: ballRadius)
             .ideal()
         
-        ball.strokeColor = .white
+        ball.strokeColor = .black
         ball.fillColor = .systemOrange
         
         addChild(ball)
@@ -70,9 +135,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func createWalls() {
         createVerticalWall(x: wallWidth/2)
         createVerticalWall(x: size.width - wallWidth/2)
+        createHorizontalWall(y: 0)
+        createHorizontalWall(y: size.height)
     }
     
     func createPassedBallDetectors() {
+        self.bottomBallDetector = createBallDetector(y: 0)
+        self.topBallDetector = createBallDetector(y: size.height)
     }
     
     func createPaddles() {
@@ -132,10 +201,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     
-    // This function is called if any two objects touch each other
-    @nonobjc func didBegin(_ contact: SKPhysicsContact) {
-    }
-    
     override func update(_ currentTime: TimeInterval) {
         // Called before each frame is rendered
         defer {
@@ -166,6 +231,21 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         addChild(wall)
     }
     
+    func createHorizontalWall(y: CGFloat) {
+        let wallSize = CGSize(width: size.width, height: wallWidth)
+        let wall = SKShapeNode(rectOf: wallSize)
+        wall.physicsBody =
+        SKPhysicsBody(rectangleOf: wallSize)
+            .ideal()
+            .manualMovement()
+        
+        wall.position = CGPoint(x: size.width/2, y: y)
+        wall.strokeColor = self.backgroundColor
+        wall.fillColor = self.backgroundColor
+        
+        addChild(wall)
+    }
+    
     func createPaddle(y: CGFloat, color: UIColor) -> SKShapeNode {
         let paddle = SKShapeNode(rectOf: paddleSize)
         paddle.physicsBody =
@@ -174,7 +254,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             .manualMovement()
         
         paddle.position = CGPoint(x: size.width/2, y: y)
-        paddle.strokeColor = color
+        paddle.strokeColor = .black
         paddle.fillColor = color
         addChild(paddle)
         return paddle
@@ -200,6 +280,24 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
         paddle.position = pos
+    }
+    
+    func createBallDetector(y: CGFloat) -> SKShapeNode {
+        let detectorSize = CGSize(width: 100.0, height: 10)
+        let detector = SKShapeNode(rectOf: detectorSize)
+        detector.physicsBody =
+        SKPhysicsBody(rectangleOf: detectorSize)
+            .ideal()
+            .manualMovement()
+        
+        detector.position = CGPoint(x: size.width/2, y: y)
+        detector.strokeColor = self.backgroundColor
+        detector.fillColor = self.backgroundColor
+        
+        detector.physicsBody?.contactTestBitMask = 1
+        
+        addChild(detector)
+        return detector
     }
 }
 
