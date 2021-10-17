@@ -18,7 +18,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     let paddleEdgeOffset: CGFloat = 60
     let wallWidth: CGFloat = 5
     
-    
     var ball: SKShapeNode!
     var topPaddle: SKShapeNode!
     var bottomPaddle: SKShapeNode!
@@ -28,28 +27,56 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     var topPaddleDirection = PaddleDirection.still
     var bottomPaddleDirection = PaddleDirection.still
     
+    var scoreLabel: SKLabelNode!
+    
+    var topScore = 0
+    var botScore = 0
+    
+    var bulogo = SKSpriteNode()
+    
     override func didMove(to view: SKView) {
         startGame()
-        self.backgroundColor = .white
+        self.backgroundColor = SKColor.lightGray
+        
+        let image = UIImage(named: "binghamton-bearcats-logo")
+        let texture = SKTexture(image: image!)
+        bulogo = SKSpriteNode(texture: texture)
+        bulogo.position = CGPoint(x: size.width/2, y: size.height/2)
+        bulogo.zPosition = -1
+        bulogo.setScale(0.20)
+        addChild(bulogo)
     }
     
     // This function is called if any two objects touch each other
     func didBegin(_ contact: SKPhysicsContact) {
         // Check to see if the ball went off the screen
-        if didContact(contact, between: self.ball, and: self.bottomBallDetector) ||
-            didContact(contact, between: self.ball, and: self.topBallDetector) {
-            // The ball went off the screen, so remove it and make a new one
+        if didContact(contact, between: self.ball, and: self.bottomBallDetector) {
+            // The ball went into the bottom goal so remove it and make a new one
+            self.topScore+=1
             self.ball?.removeFromParent()
             createBall()
             resetBall()
+            print(self.botScore)
+            print(self.topScore)
         }
+        else if didContact(contact, between: self.ball, and: self.topBallDetector) {
+            // The ball went into the top goal so remove it and make a new one
+            self.botScore+=1
+            self.ball?.removeFromParent()
+            createBall()
+            resetBall()
+            print(self.botScore)
+            print(self.topScore)
+        }
+        
+        self.scoreLabel?.removeFromParent()
+        createScore(left: self.botScore, right: self.topScore)
     }
     
     // Check a contact object for two specific nodes
     func didContact(_ contact: SKPhysicsContact, between nodeA: SKNode?, and nodeB: SKNode?) -> Bool {
-        return
-        (contact.bodyA == nodeA?.physicsBody &&
-         contact.bodyB == nodeB?.physicsBody) ||
+        return (contact.bodyA == nodeA?.physicsBody &&
+                contact.bodyB == nodeB?.physicsBody) ||
         (contact.bodyA == nodeB?.physicsBody &&
          contact.bodyB == nodeA?.physicsBody)
     }
@@ -64,7 +91,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         createWalls()
         createPassedBallDetectors()
         createPaddles()
-        createScore()
+        createScore(left: 0, right: 0)
         
         resetBall()
     }
@@ -75,15 +102,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func createRink() {
-        let smallCircle = SKShapeNode(circleOfRadius: 5.0)
-        smallCircle.position = CGPoint(x: size.width/2, y: size.height/2)
-        smallCircle.strokeColor = .blue
-        smallCircle.fillColor = .blue
-        addChild(smallCircle)
-        
         let linesize = CGSize(width: size.width, height: 4.0)
         let line1 = SKShapeNode(rectOf: linesize)
         line1.position = CGPoint(x: size.width/2, y: size.height/2)
+        line1.zPosition = -2
         line1.strokeColor = .blue
         line1.fillColor = .blue
         addChild(line1)
@@ -111,7 +133,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         bottomCircle.strokeColor = .blue
         bottomCircle.lineWidth = 5.0
         addChild(bottomCircle)
-        
     }
     
     func createBall() {
@@ -146,10 +167,14 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     
     func createPaddles() {
         self.topPaddle = createPaddle(y: size.height - paddleEdgeOffset, color: .systemRed)
-        self.bottomPaddle = createPaddle(y: paddleEdgeOffset, color: .systemBlue)
+        self.bottomPaddle = createPaddle(y: paddleEdgeOffset, color: .systemGreen)
     }
     
-    func createScore() {
+    func createScore(left: Int, right: Int) {
+        scoreLabel = SKLabelNode(fontNamed: "Chalkduster")
+        scoreLabel.text = "\(left) - \(right)"
+        scoreLabel.position = CGPoint(x: size.width/16*13, y: size.height/16*15)
+        addChild(scoreLabel)
     }
     
     func touchDown(atPoint pos : CGPoint) {
@@ -178,11 +203,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                 topPaddleDirection = direction
             }
         }
-    }
-    
-    // This function is called if a finger is moved on the screen
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchMoved(toPoint: t.location(in: self)) }
     }
     
     // This function is called if a finger is removed from the screen
